@@ -15,32 +15,6 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ### Librerías 
-```{r}
-# install.packages(c(
-#   "tidyverse",
-#   "rmarkdown",
-#   "readxl",
-#   "readr",
-#   "moments",
-#   "ggmap",
-#   "tmap",
-#   "tmaptools",
-#   "factoextra",
-#   "corrplot",
-#   "reshape2",
-#   "knitr",
-#   "plotly",
-#   "htmltools",
-#   "htmlwidgets",
-#   "leaflet",
-#    "ggplot2",
-#    "ggthemes",
-#     "ggrepel" 
-#      "car"
-# ))
-```
-
-
 ```{r setup2}
 
 library(GGally)
@@ -69,11 +43,177 @@ library (car)
 library(purrr)
 library(ggridges)
 library (robustbase)
+library(lme4)
 
 ```
 
 ```{r}
-data <- read_excel("C:/Users/Admin/Documents/1_Notebook/1_Estudio/1_UBA_Maestria_DS/1_Especializacion/1_Segundo_Semestre/EEA/TP_final_grupal/git/TP-Final-EEA/Larval_counts_emergence_time_and_adult_body_mass.xlsx", sheet = "VarE")
+data <- read_excel("Larval_counts_emergence_time_and_adult_body_mass.xlsx", sheet = "VarE")
 
 ```
+
+
+```{r}
+#elimino filas donde masa =na
+
+data <- data %>%
+  filter(b.mass.em != "na") %>%
+  mutate(b.mass.em = round(as.numeric(b.mass.em), 3)) %>% 
+  mutate(dev.time = round(as.numeric(dev.time), 1)) %>% 
+  select(-block.no)
+
+```
+
+```{r}
+# Convertir columnas categóricas a factores
+data <- data %>%
+  mutate(
+    lar.density = as.factor(lar.density),
+    sex = as.factor(sex),
+    block.no = as.factor(rep)
+  )
+```
+
+
+```{r}
+# Boxplot: Relación entre densidad larval, sexo, y masa corporal
+ggplot(data, aes(x = lar.density, y = b.mass.em, fill = sex)) +
+  geom_boxplot() +
+  labs(
+    title = "Body Mass by Larval Density and Sex",
+    x = "Larval Density",
+    y = "Body Mass (em)"
+  ) +
+  theme_minimal()
+```
+
+
+```{r}
+ggplot(data, aes(x = as.factor(rep), y = b.mass.em, fill = lar.density)) +
+  geom_boxplot() +
+  labs(
+    title = "Body Mass Distribution by Block",
+    x = "Block (block.no)",
+    y = "Body Mass (em)",
+    fill = "Larval Density"
+  ) +
+  theme_minimal()
+```
+
+
+```{r}
+data = data %>% 
+  filter(rep <= 8)
+```
+
+
+
+```{r}
+ggplot(data, aes(x = as.factor(rep), y = b.mass.em, fill = lar.density)) +
+  geom_boxplot() +
+  labs(
+    title = "Body Mass Distribution by Block",
+    x = "Block (block.no)",
+    y = "Body Mass (em)",
+    fill = "Larval Density"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+# Histograma: Distribución del tiempo de desarrollo
+ggplot(data, aes(x = dev.time)) +
+  geom_histogram(binwidth = 5, fill = "skyblue", color = "black") +
+  labs(
+    title = "Distribution of Development Time",
+    x = "Development Time",
+    y = "Frequency"
+  ) +
+  theme_minimal()
+```
+
+
+```{r}
+# Scatter plot
+ggplot(data, aes(x = dev.time, y = b.mass.em, color = sex, shape = lar.density)) +
+  geom_point(size = 3) +
+  labs(
+    title = "Development Time vs. Body Mass",
+    x = "Development Time",
+    y = "Body Mass (em)"
+  ) +
+  theme_minimal()
+
+```
+
+
+
+```{r}
+
+ggplot(data, aes(x = dev.time, y = b.mass.em, color = sex, shape = lar.density)) +
+  geom_point(size = 3) +
+  labs(
+    title = "Development Time vs Body Mass",
+    x = "Development Time",
+    y = "Body Mass (em)",
+    color = "Sex",
+    shape = "Larval Density"
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+data %>% 
+  count(sex)
+```
+
+
+```{r}
+data_female= data %>% 
+  filter(sex=="F")
+```
+
+
+
+```{r}
+ggplot(data_female, aes(x = as.factor(rep), y = b.mass.em, fill = lar.density)) +
+  geom_boxplot() +
+  labs(
+    title = "Body Mass Distribution by Block",
+    x = "Block (block.no)",
+    y = "Body Mass (em)",
+    fill = "Larval Density"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+ggplot(data_female, aes(x = dev.time, y = b.mass.em, color = lar.density )) +
+  geom_point(size = 3) +
+  labs(
+    title = "Development Time vs Body Mass",
+    x = "Development Time",
+    y = "Body Mass (em)",
+    color = "Larval Density"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+m1= lmer(b.mass.em ~ dev.time * lar.density + (1|rep), data=data_female)
+summary(m1)
+```
+
+```{r}
+m2= lmer(b.mass.em ~ dev.time + lar.density + (1|rep),data=data_female)
+summary(m2)
+```
+
+```{r}
+### seguir
+```
+
+
+
 
