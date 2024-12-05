@@ -1,0 +1,79 @@
+---
+title: "eea2024_tp1_alba_nahuel"
+output: html_notebook
+---
+
+
+# Practico 1
+
+## Preparación
+```{r setup}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+
+```
+
+### Librerías 
+```{r}
+# install.packages(c(
+#   "tidyverse",
+#   "rmarkdown",
+#   "readxl",
+#   "readr",
+#   "moments",
+#   "ggmap",
+#   "tmap",
+#   "tmaptools",
+#   "factoextra",
+#   "corrplot",
+#   "reshape2",
+#   "knitr",
+#   "plotly",
+#   "htmltools",
+#   "htmlwidgets",
+#   "leaflet",
+#    "ggplot2",
+#    "ggthemes",
+#     "ggrepel" 
+#      "car"
+# ))
+```
+
+
+```{r setup2}
+
+library(GGally)
+library(dplyr)
+library(tidyverse)
+library (rmarkdown)
+library(readxl)
+library(readr)
+library (moments)
+library(ggmap)
+library(ggplot2)
+library(ggthemes)  
+library(ggrepel) 
+library(GGally)
+library(scales)  
+library (tmap)
+library (tmaptools)
+library(factoextra)
+library(corrplot)
+library(reshape2)
+library(corrplot)
+library (knitr)
+library (tidymodels)
+library (lmtest)
+library (car)
+library(purrr)
+library(ggridges)
+library (robustbase)
+
+```
+
+```{r}
+data <- read_excel("C:/Users/Admin/Documents/1_Notebook/1_Estudio/1_UBA_Maestria_DS/1_Especializacion/1_Segundo_Semestre/EEA/TP_final_grupal/git/TP-Final-EEA/Larval_counts_emergence_time_and_adult_body_mass.xlsx", sheet = "VarE")
+
+```
+
