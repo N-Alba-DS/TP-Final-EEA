@@ -1,60 +1,75 @@
 ---
-title: "eea2024_tp1_alba_nahuel"
-output: html_notebook
+title: "Enfoque Estadístico del Aprendizaje - Trabajo práctico Final"
+subtitle: "Especialización en Explotación de datos y Descubrimiento del conocimiento"
+author: "Alba Nahuel - Federico Picado"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+  html_notebook:
+    theme: lumen
+    toc: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
+geometry: margin=1.5cm
+options: width = 150
+fontsize: 18p
+---
+
+<style type="text/css">
+h1.title {
+  text-align: center;
+}
+h3.subtitle {
+  text-align: center;
+}
+
+h4.author {
+  text-align: center;
+}
+
+h4.date {
+  text-align: center;
+}
+
+
+</style>
 ---
 
 
-# Practico 1
-
-## Preparación
+# Preparación
 ```{r setup}
-
 knitr::opts_chunk$set(echo = TRUE)
-
-
 ```
 
-### Librerías 
+# Librerías 
 ```{r setup2}
-
 library(GGally)
-library(dplyr)
 library(tidyverse)
 library (rmarkdown)
 library(readxl)
 library(readr)
-library (moments)
 library(ggmap)
 library(ggplot2)
 library(ggthemes)  
 library(ggrepel) 
 library(GGally)
-library(scales)  
-library (tmap)
-library (tmaptools)
-library(factoextra)
-library(corrplot)
-library(reshape2)
-library(corrplot)
-library (knitr)
 library (tidymodels)
 library (lmtest)
 library (car)
-library(purrr)
-library(ggridges)
 library (robustbase)
 library(lme4)
-
+library(lmerTest)
 ```
-
+# Carga y ananlisis descriptivo de los datos
 ```{r}
 data <- read_excel("Larval_counts_emergence_time_and_adult_body_mass.xlsx", sheet = "VarE")
-
 ```
 
 
 ```{r}
-#elimino filas donde masa =na
+#elimino filas donde masa = "na"
 
 data <- data %>%
   filter(b.mass.em != "na") %>%
@@ -188,6 +203,16 @@ ggplot(data_female, aes(x = as.factor(rep), y = b.mass.em, fill = lar.density)) 
   theme_minimal()
 ```
 
+No tenemos menos de 30 datos por replica.
+
+```{r}
+data_female %>% 
+  group_by(rep) %>% 
+  count()
+```
+
+
+
 ```{r}
 ggplot(data_female, aes(x = dev.time, y = b.mass.em, color = lar.density )) +
   geom_point(size = 3) +
@@ -200,19 +225,85 @@ ggplot(data_female, aes(x = dev.time, y = b.mass.em, color = lar.density )) +
   theme_minimal()
 ```
 
+
+# Modelo lineal multiple con efectos aleatorios.
+
+Lo primero que planteamos es la posibildad de una interaccion entre la densidad de larvas y el tiempo.
+Luego un modelo aditivo de ambas variables, despues dos modelos mas donde se contemple un modelo donde solo tenga una de las variables explicatorias. 
+
+
 ```{r}
-m1= lmer(b.mass.em ~ dev.time * lar.density + (1|rep), data=data_female)
-summary(m1)
+# Comparación con modelo nulo
+m0 <- lmer(b.mass.em ~ (1 | rep), data = data_female)
+
+m1= lmer(b.mass.em ~ dev.time * lar.density + (1|rep), data=data_female) #no da sig
+
+m2= lmer(b.mass.em ~ dev.time + lar.density + (1|rep), data=data_female) #parece ser el mejor
+
+m3= lmer(b.mass.em ~ dev.time + (1|rep), data=data_female)
+
+m4= lmer(b.mass.em ~ lar.density + (1|rep), data=data_female)
 ```
 
 ```{r}
-m2= lmer(b.mass.em ~ dev.time + lar.density + (1|rep),data=data_female)
+summary(m0)
+summary(m1) # la interaccion no da significativa
 summary(m2)
+summary(m3)
+summary(m4)
 ```
 
 ```{r}
-### seguir
+anova(m0, m2)
+anova(m0, m3)
+anova(m0, m4)
+anova(m2, m3)
+anova(m2, m4)
 ```
+
+
+```{r}
+
+# Residuos de Pearson
+e <- resid(m2, type = "pearson")
+
+# Valores predichos
+pre <- predict(m2)
+
+# Efectos aleatorios
+Bk <- ranef(m2)$rep$'(Intercept)'
+
+# Gráficos
+par(mfrow = c(1, 3))
+# Gráfico de residuos vs predichos
+plot(pre, e, xlab = "Predichos", ylab = "Residuos de Pearson",
+     main = "Gráfico de dispersión: RE vs PRED", cex.main = 0.8)
+
+# Q-Q Plot de los residuos
+qqnorm(e, main = "Q-Q Plot de Residuos", cex.main = 0.8)
+
+# Q-Q Plot de los efectos aleatorios
+qqnorm(Bk, main = "Q-Q Plot de Efectos Aleatorios", cex.main = 0.8)
+par(mfrow = c(1, 1))
+
+# Normalidad de residuos y efectos aleatorios
+shapiro_test_res <- shapiro.test(e)  # Test de Shapiro para residuos
+shapiro_test_Bk <- shapiro.test(Bk) # Test de Shapiro para efectos aleatorios
+print(shapiro_test_res)
+print(shapiro_test_Bk)
+
+
+anova_comparison <- anova(m2, modelo0) # Comparación con modelo nulo
+print(anova_comparison)
+AIC_comparison <- AIC(modelo0, m2) # AIC de ambos modelos
+print(AIC_comparison)
+
+# Parte fija
+fitted_values <- fitted(m2)  # Predicciones
+
+```
+
+
 
 
 
