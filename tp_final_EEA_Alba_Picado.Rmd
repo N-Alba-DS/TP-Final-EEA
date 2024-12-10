@@ -61,8 +61,11 @@ library (car)
 library (robustbase)
 library(lme4)
 library(lmerTest)
+library(MuMIn)
 ```
-# Carga y ananlisis descriptivo de los datos
+
+# Carga y analisis descriptivo de los datos
+
 ```{r}
 data <- read_excel("Larval_counts_emergence_time_and_adult_body_mass.xlsx", sheet = "VarE")
 ```
@@ -70,7 +73,6 @@ data <- read_excel("Larval_counts_emergence_time_and_adult_body_mass.xlsx", shee
 
 ```{r}
 #elimino filas donde masa = "na"
-
 data <- data %>%
   filter(b.mass.em != "na") %>%
   mutate(b.mass.em = round(as.numeric(b.mass.em), 3)) %>% 
@@ -95,9 +97,9 @@ data <- data %>%
 ggplot(data, aes(x = lar.density, y = b.mass.em, fill = sex)) +
   geom_boxplot() +
   labs(
-    title = "Body Mass by Larval Density and Sex",
-    x = "Larval Density",
-    y = "Body Mass (em)"
+    title = "Masa corporal segun densidad larval y sexo",
+    x = "Densidad larval",
+    y = "Masa corporal"
   ) +
   theme_minimal()
 ```
@@ -135,26 +137,30 @@ data_female %>%
 ```
 
 
-Si no separo por pocillo, no tengo en cuanta va
+Si no separo por vidrio
 
 ```{r}
 ggplot(data_female, aes(x = lar.density, y = b.mass.em, fill = lar.density)) +
   geom_boxplot() +
+  scale_color_brewer(palette = "Set2") +
+  geom_jitter(
+    size = 1.2, 
+    alpha = 0.8, 
+    color = "black", # Color negro para los puntos
+    position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75)
+  )+
   labs(
-    title = "Body Mass Distribution by Block",
-    x = "Block (block.no)",
-    y = "Body Mass (em)",
+    title = "Masa corporal segun densidad larval",
+    x = "Densidad larval",
+    y = "Masa corporal",
     fill = "Larval Density"
   ) +
   theme_minimal()
 ```
 
-
-si separo por pocillo
-
+Boxplot por tratamiento teniendo en cuenta la replica.
 
 ```{r}
-
 ggplot(data_female, aes(x = lar.density, y = b.mass.em, fill = factor(rep))) +
   geom_boxplot(
     outlier.shape = NA, 
@@ -171,7 +177,7 @@ ggplot(data_female, aes(x = lar.density, y = b.mass.em, fill = factor(rep))) +
   scale_color_manual(values = scales::hue_pal()(16), name = "Réplica")+
   labs(
     x = "Densidad Larval",
-    y = "Masa Corporal (g)",
+    y = "Masa Corporal",
     title = "Boxplot de Masa Corporal por Tratamiento y Réplica"
   ) +
   theme_minimal() +
@@ -189,20 +195,27 @@ summary(data_female)
 table(data_female$lar.density, data_female$rep)
 ```
 
-
-
-
 ```{r}
-ggplot(data_female, aes(x = dev.time, y = b.mass.em, color = lar.density )) +
-  geom_point(size = 3) +
+ggplot(data_female, aes(x = dev.time, y = b.mass.em, color = lar.density)) +
+  geom_point(size = 3, alpha = 0.8) +
+  scale_color_brewer(palette = "Set2") +
   labs(
     title = "Development Time vs Body Mass",
     x = "Development Time",
     y = "Body Mass (em)",
     color = "Larval Density"
   ) +
-  theme_minimal()
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    legend.position = "top",
+    panel.grid.major = element_line(color = "grey80"),
+    panel.grid.minor = element_blank(),
+    axis.title = element_text(face = "bold"),
+    axis.text = element_text(color = "grey20")
+)
 ```
+
 
 
 # Modelo lineal multiple con efectos aleatorios.
@@ -213,84 +226,85 @@ Luego un modelo aditivo de ambas variables, despues dos modelos mas donde se con
 
 Las variables de efectos aleatorios son siempre cualitativas, por mas que el bloque sea rep 1,2,3,4,etc, no es que la replica dos tiene el doble de efecto que el uno, podrian haber sido a,b,c,d.
 
-Agregamos esta variable para modelar la falta de independencia entre las observaciones que pertenecen a una replica. Nos va a pertimiter entender distintos niveles de variabilidad. ME interesa estimar varianzas. Las varianzas entre los niveles de la variable de efectos aleatorios.
-
-
+Agregamos esta variable para modelar la falta de independencia entre las observaciones que pertenecen a una replica. Nos va a pertimiter entender distintos niveles de variabilidad entre las replicas.
 
 
 ```{r}
 # Comparación con modelo nulo
 m0 <- lmer(b.mass.em ~ (1 | rep), data = data_female)
 
-m1= lmer(b.mass.em ~ dev.time * lar.density + (1|rep), data=data_female) #no da sig
+m1= lmer(b.mass.em ~ dev.time * lar.density + (1|rep), data=data_female) #no da significativa la interacion.
 
-m2= lmer(b.mass.em ~ dev.time + lar.density + (1|rep), data=data_female) #parece ser el mejor
+m2= lmer(b.mass.em ~ dev.time + lar.density + (1|rep), data=data_female) 
 
 m3= lmer(b.mass.em ~ dev.time + (1|rep), data=data_female)
 
 m4= lmer(b.mass.em ~ lar.density + (1|rep), data=data_female)
 
-m5= lm(b.mass.em ~ dev.time + lar.density, data=data_female) #Comparar que pasa si no pongo efectos aleatorios
-
+m5= lm(b.mass.em ~ dev.time + lar.density, data=data_female) #Que pasa si no pongo variable de efectos aleatorios
 ```
-
-
 
 ```{r}
 summary(m0)
-summary(m1) # la interaccion no da significativa
+```
+
+```{r}
+summary(m1)
+```
+
+```{r}
 summary(m2)
+```
+
+```{r}
 summary(m3)
+```
+
+```{r}
 summary(m4)
+```
+
+
+```{r}
 summary(m5)
 ```
 
+
 ```{r}
 anova(m0, m2)
+```
+
+```{r}
 anova(m0, m3)
+
+```
+
+```{r}
 anova(m0, m4)
+
+```
+
+
+```{r}
+anova(m0, m5)
+```
+
+
+```{r}
 anova(m2, m3)
+```
+
+
+```{r}
 anova(m2, m4)
 ```
 
-
 ```{r}
-
-# Extraer efectos aleatorios
-ranef_m2 <- ranef(m2, condVar = TRUE)
-
-# Convertir los efectos aleatorios en un data frame para ggplot
-ranef_df <- as.data.frame(ranef_m2$`rep`)
-
-# Añadir los intervalos de confianza (calcula el error estándar)
-ranef_df$upper <- ranef_df$`(Intercept)` + 1.96 * sqrt(attr(ranef_m2$`rep`, "postVar")[1, 1, ])
-ranef_df$lower <- ranef_df$`(Intercept)` - 1.96 * sqrt(attr(ranef_m2$`rep`, "postVar")[1, 1, ])
-
-# Añadir nombres para identificar réplicas
-ranef_df$group <- rownames(ranef_df)
-
-# Graficar los BLUPs con colores y orientación vertical
-ggplot(ranef_df, aes(x = reorder(group, `(Intercept)`), y = `(Intercept)`, ymin = lower, ymax = upper, color = `(Intercept)` > 0)) +
-  geom_point(size = 3) + # Puntos para los efectos aleatorios
-  geom_errorbar(width = 0.2) + # Intervalos de confianza
-  geom_hline(yintercept = 0, linetype = "dashed", color = "red") + # Línea en 0
-  scale_color_manual(values = c("red", "blue"), guide = "none") + # Colores según condición
-  labs(
-    title = "Efectos Aleatorios (BLUPs)",
-    x = "Réplica y Tratamiento",
-    y = "Efectos Aleatorios (Intercepto)"
-  ) +
-  theme_minimal() +
-  theme(
-    axis.text.y = element_text(size = 10),
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  ) +
-  coord_flip()  # Ajustar texto en el eje X
+anova(m2, m5)
 ```
 
 
-
-
+# Cumplimiento de los supuestos
 
 ```{r}
 # Usando m1 como ejemplo, pero aplica a cualquier modelo
@@ -314,21 +328,17 @@ shapiro.test(res)
 shapiro.test(Bk)
 ```
 
-######### no se cumple el supuesto de normalidad, transformo la variable respuesta a log y le aplico un modelo gamma.
+Dado que no se cumple el supuesto de normalidad, transformo la variable respuesta a log, teniendo asi un modelo Log-Nivel.
 
 ```{r}
 # Transformación logarítmica
 data_female$log_b.mass.em <- log(data_female$b.mass.em)
 
 # Ajustar el modelo con la variable transformada
-m2_log <- lmer(log_b.mass.em ~ dev.time + lar.density + (1|rep:lar.density), data = data_female)
+m2_log <- lmer(log_b.mass.em ~ dev.time + lar.density + (1|rep), data = data_female)
 ```
 
-
-```{r}
-summary(m2_log)
-```
-
+Este modelo cumple los supuestos?
 
 ```{r}
 # Usando m1 como ejemplo, pero aplica a cualquier modelo
@@ -352,6 +362,29 @@ shapiro.test(res)
 shapiro.test(Bk)
 ```
 
+
+```{r}
+summary(m2_log)
+```
+
+
+```{r}
+# Extraer las varianzas de los componentes
+var_rep <- as.data.frame(VarCorr(m2_log))$vcov[1]   
+var_residual <- attr(VarCorr(m2_log), "sc")^2   
+
+# Calcular el ICC
+icc <- var_rep / (var_rep + var_residual)
+icc
+```
+
+El 54% de la variabilidad esta explicada por las replicas. 
+
+```{r}
+r2_values <- r.squaredGLMM(m2_log)
+print(r2_values)
+```
+
 ```{r}
 # Extraer efectos aleatorios
 ranef_m2 <- ranef(m2_log, condVar = TRUE)
@@ -360,18 +393,26 @@ ranef_m2 <- ranef(m2_log, condVar = TRUE)
 ranef_df <- as.data.frame(ranef_m2$`rep`)
 
 # Añadir los intervalos de confianza (calcula el error estándar)
-ranef_df$upper <- ranef_df$`(Intercept)` + 1.96 * sqrt(attr(ranef_m2$`rep`, "postVar")[1, 1, ])
-ranef_df$lower <- ranef_df$`(Intercept)` - 1.96 * sqrt(attr(ranef_m2$`rep`, "postVar")[1, 1, ])
+ranef_df$upper <- ranef_df$`(Intercept)` + 1.96 * sqrt(attr(ranef_m2_log$`rep`, "postVar")[1, 1, ])
+ranef_df$lower <- ranef_df$`(Intercept)` - 1.96 * sqrt(attr(ranef_m2_log$`rep`, "postVar")[1, 1, ])
 
-# Añadir nombres para identificar réplicas
+# Renombrar la columna (Intercept)
+ranef_df$intercept <- ranef_df$`(Intercept)`
 ranef_df$group <- rownames(ranef_df)
 
-# Graficar los BLUPs con colores y orientación vertical
-ggplot(ranef_df, aes(x = reorder(group, `(Intercept)`), y = `(Intercept)`, ymin = lower, ymax = upper, color = `(Intercept)` > 0)) +
-  geom_point(size = 3) + # Puntos para los efectos aleatorios
-  geom_errorbar(width = 0.2) + # Intervalos de confianza
-  geom_hline(yintercept = 0, linetype = "dashed", color = "red") + # Línea en 0
-  scale_color_manual(values = c("red", "blue"), guide = "none") + # Colores según condición
+# Ahora define todos los niveles del factor en el orden que quieras
+ranef_df$group <- factor(ranef_df$group, 
+                         levels = c("1:low", "2:low", "3:low", "4:low", "5:low",
+                                    "6:low", "7:low", "8:low",
+                                    "9:high", "10:high", "11:high", "12:high",
+                                    "13:high", "14:high", "15:high", "16:high"))
+
+# Ahora al graficar no deberías tener NAs
+ggplot(ranef_df, aes(x = group, y = intercept, ymin = lower, ymax = upper, color = intercept > 0)) +
+  geom_point(size = 3) +
+  geom_errorbar(width = 0.2) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  scale_color_manual(values = c("red", "blue"), guide = "none") +
   labs(
     title = "Efectos Aleatorios (BLUPs)",
     x = "Réplica y Tratamiento",
@@ -382,26 +423,34 @@ ggplot(ranef_df, aes(x = reorder(group, `(Intercept)`), y = `(Intercept)`, ymin 
     axis.text.y = element_text(size = 10),
     axis.text.x = element_text(angle = 45, hjust = 1)
   ) +
-  coord_flip()  # Ajustar texto en el eje X
+  coord_flip()
+
 ```
 
 
 ```{r}
-# Extraer las varianzas de los componentes
-var_random <- as.data.frame(VarCorr(m2_log))$vcov[1]   # Varianza del intercepto aleatorio (rep)
-var_residual <- attr(VarCorr(m2_log), "sc")^2          # Varianza residual
-
-# Calcular el ICC
-icc <- var_random / (var_random + var_residual)
-icc
+ggplot(data_female, aes(x = dev.time, y = b.mass.em, color = lar.density)) +
+  geom_point(size = 3, alpha = 0.8) +
+  geom_smooth(
+    method = "lm", 
+    formula = y ~ x + I(x^2), 
+    se = TRUE,    # Si quieres banda de confianza
+    size = 1.2
+  ) +
+  scale_color_brewer(palette = "Set2") +
+  labs(
+    title = "Development Time vs Body Mass (con término cuadrático)",
+    x = "Development Time",
+    y = "Body Mass (em)",
+    color = "Larval Density"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    legend.position = "top",
+    panel.grid.major = element_line(color = "grey80"),
+    panel.grid.minor = element_blank(),
+    axis.title = element_text(face = "bold"),
+    axis.text = element_text(color = "grey20")
+)
 ```
-
-
-
-```{r}
-library(sjPlot)
-tab_model(m0, m1, m2_log, m3, m4, show.icc=TRUE, show.re.var=TRUE)
-```
-
-
-
