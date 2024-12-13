@@ -1,5 +1,5 @@
 ---
-title: "Enfoque Estadístico del Aprendizaje - Trabajo práctico Final"
+title: "Enfoque Estadístico del Aprendizaje - Trabajo Final"
 subtitle: "Especialización en Explotación de datos y Descubrimiento del conocimiento"
 author: "Alba Nahuel - Federico Picado"
 output:
@@ -36,43 +36,55 @@ h4.date {
 
 </style>
 ---
-
-
-# Preparación
 ```{r setup}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Librerías 
+Las librerías utilizadas se muestran a continuacion:
+
 ```{r setup2}
 library(GGally)
 library(tidyverse)
 library (rmarkdown)
 library(readxl)
 library(readr)
-library(ggmap)
 library(ggplot2)
 library(ggthemes)  
-library(ggrepel) 
 library(GGally)
 library (tidymodels)
 library (lmtest)
 library (car)
-library (robustbase)
 library(lme4)
 library(lmerTest)
 library(MuMIn)
 ```
 
-# Carga y analisis descriptivo de los datos
+# Carga de datos y analisis descriptivo.
 
 ```{r}
 data <- read_excel("Larval_counts_emergence_time_and_adult_body_mass.xlsx", sheet = "VarE")
 ```
 
+Como esta compuesto el dataset?
 
 ```{r}
-#elimino filas donde masa = "na"
+names(data)
+```
+
+
+Variable dependiente:
+
+- _b.mass.em_: Cuantitativa continua (mg).
+
+Variables explicativas: 
+
+- _lar.density_: Variable de efectos fijos, cualitativa.
+- _dev.time_: Variable de efectos fijos, cuantitativa continua (horas).
+- _rep_: Variable de efectos aleatorios, cualitativa.
+
+
+```{r}
+#elimino filas donde b.mass.em = "na"
 data <- data %>%
   filter(b.mass.em != "na") %>%
   mutate(b.mass.em = round(as.numeric(b.mass.em), 3)) %>% 
@@ -91,6 +103,7 @@ data <- data %>%
   )
 ```
 
+Vemos las diferencias que hay en biomasa para hembras y machos.
 
 ```{r}
 # Boxplot: Relación entre densidad larval, sexo, y masa corporal
@@ -117,27 +130,39 @@ data_female= data %>%
   filter(sex=="F")
 ```
 
-
+El nombre de la replica era el mismo ya sea para alta densidad de larvas o baja.
+Cada grupo de muestras independientes entre si tiene que tener un identificador unico. 
 
 ```{r}
 data_female <- data_female %>%
   filter(rep %in% as.character(1:8))
-```
 
-
-```{r}
 data_female <- data_female %>%
   mutate(rep = if_else(lar.density == "high", as.numeric(rep) + 8, as.numeric(rep)))
+
 ```
+
+
 
 ```{r}
-data_female %>% 
-  group_by(rep) %>% 
-  count()
+data_female %>%
+  group_by(rep) %>%
+  summarise(n = n()) %>%
+  ggplot(aes(x = as.factor(rep), y = n)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+  labs(
+    x = "Replica",
+    y = "Cantidad",
+    title = "Cantidad de larvas para cada replica"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  )
+
 ```
-
-
-Si no separo por vidrio
 
 ```{r}
 ggplot(data_female, aes(x = lar.density, y = b.mass.em, fill = lar.density)) +
@@ -158,8 +183,6 @@ ggplot(data_female, aes(x = lar.density, y = b.mass.em, fill = lar.density)) +
   theme_minimal()
 ```
 
-Boxplot por tratamiento teniendo en cuenta la replica.
-
 ```{r}
 ggplot(data_female, aes(x = lar.density, y = b.mass.em, fill = factor(rep))) +
   geom_boxplot(
@@ -170,7 +193,7 @@ ggplot(data_female, aes(x = lar.density, y = b.mass.em, fill = factor(rep))) +
   geom_jitter(
     size = 1.2, 
     alpha = 0.8, 
-    color = "black", # Color negro para los puntos
+    color = "black", 
     position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75)
   )+
   scale_fill_manual(values = scales::hue_pal()(16), name = "Réplica") +
@@ -190,20 +213,26 @@ ggplot(data_female, aes(x = lar.density, y = b.mass.em, fill = factor(rep))) +
   )
 ```
 
-```{r}
-summary(data_female)
-table(data_female$lar.density, data_female$rep)
-```
+Mediante la aplicación de un modelo mixto, que incluye efectos fijos y aleatorios, podemos representar con mayor precisión la variabilidad natural existente entre las diferentes réplicas. Mientras que los efectos fijos permiten evaluar el impacto específico del experimento, los efectos aleatorios se enfocan en la variación que surge de cada réplica. 
+
+Si no incluyo efectos aleatorios en el modelo, una parte de la variabilidad entre las unidades experimentales se queda sin modelar y, por lo tanto, se acumula en los residuos. Esto llevara a un menor porcentaje de variabilidad explicada por el modelo.
+
 
 ```{r}
-ggplot(data_female, aes(x = dev.time, y = b.mass.em, color = lar.density)) +
+ggplot(data_female, aes(x = dev.time, y =b.mass.em, color = lar.density)) +
   geom_point(size = 3, alpha = 0.8) +
+    geom_smooth(
+    method = "lm", 
+    formula = y ~ x , 
+    se = TRUE,   
+    size = 1.2
+  )+
   scale_color_brewer(palette = "Set2") +
   labs(
-    title = "Development Time vs Body Mass",
-    x = "Development Time",
-    y = "Body Mass (em)",
-    color = "Larval Density"
+    title = "Biomasa vs Tiempo",
+    x = "Tiempo (hs)",
+    y = "Biomasa",
+    color = "Densidad larval"
   ) +
   theme_minimal() +
   theme(
@@ -216,22 +245,16 @@ ggplot(data_female, aes(x = dev.time, y = b.mass.em, color = lar.density)) +
 )
 ```
 
+Los mosquitos se pesan cuando llegan a su estado adulto, en este grafico vemos que los mosquitos que estan bajo el tratamiento de alta densidad tardar mas horas en llegar a su estado adulto, el cual puede durar entre 7 y 14 dias aproximadamente.
 
 
 # Modelo lineal multiple con efectos aleatorios.
 
-Lo primero que planteamos es la posibildad de una interaccion entre la densidad de larvas y el tiempo.
-Luego un modelo aditivo de ambas variables, despues dos modelos mas donde se contemple un modelo donde solo tenga una de las variables explicatorias. 
-
-
-Las variables de efectos aleatorios son siempre cualitativas, por mas que el bloque sea rep 1,2,3,4,etc, no es que la replica dos tiene el doble de efecto que el uno, podrian haber sido a,b,c,d.
-
-Agregamos esta variable para modelar la falta de independencia entre las observaciones que pertenecen a una replica. Nos va a pertimiter entender distintos niveles de variabilidad entre las replicas.
-
+Se plantearon y evaluaron distintos modelos, que se muestran a contiuacion:
 
 ```{r}
-# Comparación con modelo nulo
-m0 <- lmer(b.mass.em ~ (1 | rep), data = data_female)
+# Modelos
+m0= lmer(b.mass.em ~ (1 | rep), data = data_female)
 
 m1= lmer(b.mass.em ~ dev.time * lar.density + (1|rep), data=data_female) #no da significativa la interacion.
 
@@ -241,73 +264,39 @@ m3= lmer(b.mass.em ~ dev.time + (1|rep), data=data_female)
 
 m4= lmer(b.mass.em ~ lar.density + (1|rep), data=data_female)
 
-m5= lm(b.mass.em ~ dev.time + lar.density, data=data_female) #Que pasa si no pongo variable de efectos aleatorios
 ```
 
+Comparamos cada uno de los modelos usando un test de verosimilitud. Hay una mejora significativa del ajuste entre cada modelo?
+
 ```{r}
-summary(m0)
+anova(m0, m1) 
+anova(m0, m2)
+anova(m0, m3)
+anova(m0, m4)
+anova(m2, m1)
+anova(m2, m3)
+anova(m2, m4)
 ```
 
 ```{r}
 summary(m1)
 ```
 
+
 ```{r}
 summary(m2)
 ```
 
-```{r}
-summary(m3)
-```
+La ecuacion formal del modelo seria:
 
-```{r}
-summary(m4)
-```
+$$ 
+b.mass.em = \beta_0 + \beta_1\ * dev.time + \beta_2\ * lar.density\ low + B_k + \epsilon
+$$
 
-
-```{r}
-summary(m5)
-```
+En los modelos mixtos, se asume que los efectos aleatorios provienen de una distribución normal con media cero y una varianza dada por las replicas. Al incorporar estos efectos, se espera que una vez ajustado el modelo, las observaciones sean independientes unas de otras dado que la fuente principal de variación adicional (capturada por los efectos aleatorios) ya está incorporada. Como resultado, los residuos deberían carecer de patrones evidentes y distribuirse de forma aproximadamente normal. 
 
 
 ```{r}
-anova(m0, m2)
-```
-
-```{r}
-anova(m0, m3)
-
-```
-
-```{r}
-anova(m0, m4)
-
-```
-
-
-```{r}
-anova(m0, m5)
-```
-
-
-```{r}
-anova(m2, m3)
-```
-
-
-```{r}
-anova(m2, m4)
-```
-
-```{r}
-anova(m2, m5)
-```
-
-
-# Cumplimiento de los supuestos
-
-```{r}
-# Usando m1 como ejemplo, pero aplica a cualquier modelo
 res <- resid(m2)
 pred <- predict(m2) 
 
@@ -328,7 +317,8 @@ shapiro.test(res)
 shapiro.test(Bk)
 ```
 
-Dado que no se cumple el supuesto de normalidad, transformo la variable respuesta a log, teniendo asi un modelo Log-Nivel.
+Dado que no se cumple el supuesto de normalidad, transformamos la variable respuesta biomasa a logaritmo, teniendo asi un modelo Log-Nivel.
+
 
 ```{r}
 # Transformación logarítmica
@@ -338,10 +328,9 @@ data_female$log_b.mass.em <- log(data_female$b.mass.em)
 m2_log <- lmer(log_b.mass.em ~ dev.time + lar.density + (1|rep), data = data_female)
 ```
 
-Este modelo cumple los supuestos?
+Este nuevo modelo cumple los supuestos antes mencionados?
 
 ```{r}
-# Usando m1 como ejemplo, pero aplica a cualquier modelo
 res <- resid(m2_log)
 pred <- predict(m2_log) 
 
@@ -364,57 +353,85 @@ shapiro.test(Bk)
 
 
 ```{r}
+#Resumen del modelo
 summary(m2_log)
 ```
 
 
+Los coeficientes son estadísticamente significativos, lo cual indica que dev.time y lar.densitylow tienen un efecto sobre la biomasa.
+
+El intercepto no tiene valor interpretativo ya que a tiempo 0 el mosquito no se ha desarrollado aun.
+
+El valor del coeficiente estimado para dev.time es de -0.001863, por lo que por cada aumento unitario en horas la biomasa corporal de los mosquitos al llegar al estado adulto disminuye en promedio 0.186%, manteniendo el resto de variables constantes. 
+
+El coeficiente negativo asociado a dev.time no indica que el mosquito esté perdiendo masa a lo largo del tiempo de forma dinámica. No se esta midiendo la masa repetidamente en el mismo individuo conforme pasan las horas, sino que aquellos mosquitos que toman más tiempo en completar su desarrollo y emerger como adultos tienden a tener menor biomasa al momento de la medición final.
+
+
+El valor del coeficiente estimado para lar.densitylow es de 0.6614, lo que significa que en promedio los mosquitos con tratamiento low en comparacion con tratamiento high tienen una ganancia del 66,14% en la biomasa, manteniendo dev.time constante.
+
+
+# Coeficiente de correlacion intraclase:
+
+Mide la variabilidad aportada por cada variable explicatoria con efectos aleatorios. Se calculo como CCI = Varianza replica dividido la varianza de la replica más la varianza general del modelo. Valores altos de cci son indicativos de que la variabilidad de la variable dependiente es explicada por los variación entre replicas. En definitiva, es reflejo de la heterogeneidad de las replicas al aportar variabilidad en la explicación del fenómeno.
+
+
 ```{r}
-# Extraer las varianzas de los componentes
+#Calculo del ICC
+
 var_rep <- as.data.frame(VarCorr(m2_log))$vcov[1]   
 var_residual <- attr(VarCorr(m2_log), "sc")^2   
 
-# Calcular el ICC
 icc <- var_rep / (var_rep + var_residual)
 icc
 ```
 
-El 54% de la variabilidad esta explicada por las replicas. 
+El 54% de la variación aleatoria (no impuesta por el experimento) en la biomasa de los mosquitos esta explicada por la variación en las replicas. 
 
 ```{r}
 r2_values <- r.squaredGLMM(m2_log)
 print(r2_values)
 ```
 
+Incluyendo los efectos aleatorios al modelos logro explicar un 86,7% de la variabilidad de los datos.
+
+
+
+Por ultimo, se pueden realizar predicciones en base a una replica particular. 
+
+$$
+\text{BLUP}_j = \text{BLUE}_j \left( \frac{\sigma^2_{\text{rep}}}{\sigma^2_{\text{rep}} + \frac{\sigma^2}{n_i}} \right)
+$$
+
+El BLUP permite predecir el efecto aleatorio de un grupo determinado teniendo en cuenta tanto la información propia de ese grupo (sus datos individuales) como la información global del conjunto de datos (la población general). Ademas, si un determinado grupo tiene pocos datos o datos poco fiables, el BLUP "encoge" esa predicción hacia la media global, evitando estimaciones extremas y reduciendo el error de predicción.
+
+
 ```{r}
-# Extraer efectos aleatorios
-ranef_m2 <- ranef(m2_log, condVar = TRUE)
+ranef_m2_log <- ranef(m2_log, condVar = TRUE)
+ranef_df <- as.data.frame(ranef_m2_log$`rep`)
 
-# Convertir los efectos aleatorios en un data frame para ggplot
-ranef_df <- as.data.frame(ranef_m2$`rep`)
-
-# Añadir los intervalos de confianza (calcula el error estándar)
 ranef_df$upper <- ranef_df$`(Intercept)` + 1.96 * sqrt(attr(ranef_m2_log$`rep`, "postVar")[1, 1, ])
 ranef_df$lower <- ranef_df$`(Intercept)` - 1.96 * sqrt(attr(ranef_m2_log$`rep`, "postVar")[1, 1, ])
 
-# Renombrar la columna (Intercept)
-ranef_df$intercept <- ranef_df$`(Intercept)`
-ranef_df$group <- rownames(ranef_df)
 
-# Ahora define todos los niveles del factor en el orden que quieras
+ranef_df$group <- rownames(ranef_df)
+ranef_df$group <- ifelse(as.integer(ranef_df$group) <= 8,
+                         paste0(ranef_df$group, ":low"),
+                         paste0(ranef_df$group, ":high"))
+
+ranef_df$intercept <- ranef_df$`(Intercept)`
 ranef_df$group <- factor(ranef_df$group, 
-                         levels = c("1:low", "2:low", "3:low", "4:low", "5:low",
-                                    "6:low", "7:low", "8:low",
-                                    "9:high", "10:high", "11:high", "12:high",
+                         levels = c("1:low", "2:low", "3:low", "4:low", 
+                                    "5:low", "6:low", "7:low", "8:low",
+                                    "9:high", "10:high", "11:high", "12:high", 
                                     "13:high", "14:high", "15:high", "16:high"))
 
-# Ahora al graficar no deberías tener NAs
 ggplot(ranef_df, aes(x = group, y = intercept, ymin = lower, ymax = upper, color = intercept > 0)) +
   geom_point(size = 3) +
   geom_errorbar(width = 0.2) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
   scale_color_manual(values = c("red", "blue"), guide = "none") +
   labs(
-    title = "Efectos Aleatorios (BLUPs)",
+    title = "BLUPs",
     x = "Réplica y Tratamiento",
     y = "Efectos Aleatorios (Intercepto)"
   ) +
@@ -424,33 +441,12 @@ ggplot(ranef_df, aes(x = group, y = intercept, ymin = lower, ymax = upper, color
     axis.text.x = element_text(angle = 45, hjust = 1)
   ) +
   coord_flip()
-
 ```
 
 
-```{r}
-ggplot(data_female, aes(x = dev.time, y = b.mass.em, color = lar.density)) +
-  geom_point(size = 3, alpha = 0.8) +
-  geom_smooth(
-    method = "lm", 
-    formula = y ~ x + I(x^2), 
-    se = TRUE,    # Si quieres banda de confianza
-    size = 1.2
-  ) +
-  scale_color_brewer(palette = "Set2") +
-  labs(
-    title = "Development Time vs Body Mass (con término cuadrático)",
-    x = "Development Time",
-    y = "Body Mass (em)",
-    color = "Larval Density"
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5),
-    legend.position = "top",
-    panel.grid.major = element_line(color = "grey80"),
-    panel.grid.minor = element_blank(),
-    axis.title = element_text(face = "bold"),
-    axis.text = element_text(color = "grey20")
-)
-```
+Este gráfico muestra la desviación de cada réplica con respecto al intercepto promedio estimado por el modelo mixto. En otras palabras, presenta cómo cada réplica se “desvía” de la media general, una vez que hemos tenido en cuenta el efecto fijo de la densidad larval y las relaciones entre la masa corporal y el tiempo de desarrollo.
+
+Las barras horizontales representan intervalos de confianza alrededor del efecto aleatorio de cada réplica. Algunas réplicas presentan valores por encima de cero (efectos aleatorios positivos), indicando que, incluso controlando por los efectos fijos, esos ensayos tienden a producir masas corporales mayores a lo esperado. 
+
+
+
